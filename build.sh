@@ -6,6 +6,7 @@
 
 APP_NAME=aboutsync
 XPI=$APP_NAME.xpi
+SOURCE_ZIP=${APP_NAME}-sources.zip
 ZIP_CMD="zip -9 -q"
 
 rm $XPI
@@ -19,6 +20,15 @@ $ZIP_CMD $XPI data/*
 
 # Report details about what we created.
 find $XPI -maxdepth 1 -printf '%f, %s bytes'
+echo
+
+# AMO suddenly wants us to include a .zip file with the sources used to
+# build it. A full zip, including node-modules, is too large.
+[ -e $SOURCE_ZIP ] && rm $SOURCE_ZIP
+$ZIP_CMD $SOURCE_ZIP * -x aboutsync*
+$ZIP_CMD $SOURCE_ZIP -r data lib src
+find $SOURCE_ZIP -maxdepth 1 -printf '%f, %s bytes'
+echo
 
 # Now try and sign it!
 # See https://mana.mozilla.org/wiki/display/SVCOPS/Sign+a+Mozilla+Internal+Extension for the gory details,
