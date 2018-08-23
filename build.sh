@@ -10,7 +10,7 @@ SOURCE_ZIP=${APP_NAME}-sources.zip
 ZIP_CMD="zip -9 -q"
 
 rm $XPI
-$ZIP_CMD $XPI README.md chrome.manifest install.rdf bootstrap.js
+$ZIP_CMD $XPI README.md chrome.manifest manifest.json ext_bootstrap.js webext/*
 
 # It's called build-js since it doesn't exeucte this build script
 npm run build-js
@@ -26,7 +26,7 @@ echo
 # build it. A full zip, including node-modules, is too large.
 [ -e $SOURCE_ZIP ] && rm $SOURCE_ZIP
 $ZIP_CMD $SOURCE_ZIP * -x aboutsync*
-$ZIP_CMD $SOURCE_ZIP -r data lib src
+$ZIP_CMD $SOURCE_ZIP -r data lib src webext
 find $SOURCE_ZIP -maxdepth 1 -printf '%f, %s bytes'
 echo
 

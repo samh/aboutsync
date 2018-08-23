@@ -40,55 +40,6 @@ function debug(...args) {
   }
 }
 
-// Utilities to initialize the addon...
-function loadIntoWindow(window) {
-  if (!window)
-    return;
-  let wintype = window.document.documentElement.getAttribute('windowtype');
-  if (wintype != "navigator:browser") {
-    log("not installing aboutsync extension into window of type " + wintype);
-    return;
-  }
-  // Add persistent UI elements to the "Tools" ment.
-  let menuItem = window.document.createElement("menuitem");
-  menuItem.setAttribute("id", "aboutsync-menuitem");
-  menuItem.setAttribute("label", "About Sync");
-  menuItem.addEventListener("command", function(event) {
-    let win = event.target.ownerDocument.defaultView;
-    let tab = win.gBrowser.addTab("about:sync");
-    win.gBrowser.selectedTab = tab;
-  }, true);
-  let menu = window.document.getElementById("menu_ToolsPopup");
-  if (!menu) {
-    // might be a popup or similar.
-    log("not installing aboutsync extension into browser window as there is no Tools menu");
-  }
-  menu.appendChild(menuItem);
-  debug("installing aboutsync into new window");
-}
-
-function unloadFromWindow(window) {
-  if (!window)
-    return;
-  window.document.getElementById("aboutsync-menuitem").remove();
-  // Remove any persistent UI elements
-  // Perform any other cleanup
-}
-
-let windowListener = {
-  onOpenWindow: function(aWindow) {
-    // Wait for the window to finish loading
-    let domWindow = aWindow.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowInternal || Ci.nsIDOMWindow);
-    domWindow.addEventListener("load", function onLoad() {
-      domWindow.removeEventListener("load", onLoad, false);
-      loadIntoWindow(domWindow);
-    }, false);
-  },
-
-  onCloseWindow: function(aWindow) {},
-  onWindowTitleChange: function(aWindow, aTitle) {}
-};
-
 const ENGINE_NAMES = ["addons", "bookmarks", "clients", "forms", "history",
                       "passwords", "prefs", "tabs"];
 
@@ -109,7 +60,7 @@ const PREF_RESTORE_TOPICS = [
 
 // We'll show some UI on certain sync status notifications - currently just
 // errors.
-SYNC_STATUS_TOPICS = [
+const SYNC_STATUS_TOPICS = [
   "weave:service:sync:error",
   "weave:service:sync:finish",
   "weave:service:login:error",
@@ -163,11 +114,42 @@ function shouldReportError(data) {
          ![Weave.Status.login, Weave.Status.sync].includes(WeaveConstants.LOGIN_FAILED_NETWORK_ERROR);
 }
 
+// Register a chrome URL. This sucks in so many ways
+// 1) That we need a chrome URL at all. We can get quite a way with just a
+//    resource URL, until it comes time to load index.html, at which time we
+//    don't have chrome permissions (which is a shame, as we can Cu.import
+//    our modules from the same resource:// base URL and they do have chrome
+//    permissions)
+// 2) We have to call addBootstrappedManifestLocation, which is probably
+//    going to go away once bootstrapped extensions do. If we weren't in a .xpi
+//    file we could call nsIComponentRegistrar.autoRegister with an nsIFile
+//    pointing at our chrome.manifest.
+function registerChrome(data) {
+  let mgr = Components.manager.QueryInterface(Ci.nsIComponentManager);
+  let url = data.context.extension.resourceURL;
+  let match = url.match(/^jar:(.+?)!\/$/);
+  if (match) {
+    url = match[1];
+  }
+
+  let uri = Services.io.newURI(url);
+  uri.QueryInterface(Ci.nsIFileURL);
+  mgr.addBootstrappedManifestLocation(uri.file);
+}
+
+let isAppShuttingDown = false;
+function onQuitApplicationGranted() {
+  isAppShuttingDown = true;
+}
+
 /*
  * Extension entry points
  */
 function startup(data, reason) {
   log("starting up");
+
+  registerChrome(data);
+
   // Watch for prefs we care about.
   Services.prefs.addObserver(PREF_VERBOSE, prefObserver, false);
   // Ensure initial values are picked up.
@@ -186,15 +168,7 @@ function startup(data, reason) {
     Services.obs.addObserver(syncStatusObserver, topic, false);
   }
 
-  // Load into any existing windows
-  let windows = Services.wm.getEnumerator("navigator:browser");
-  while (windows.hasMoreElements()) {
-    let domWindow = windows.getNext().QueryInterface(Ci.nsIDOMWindow);
-    loadIntoWindow(domWindow);
-  }
-
-  // Load into any new windows
-  Services.wm.addListener(windowListener);
+  Services.obs.addObserver(onQuitApplicationGranted, "quit-application-granted", false);
 
   // for some reason we can't use chrome://aboutsync at the top-level of
   // this module, but only after startup is called.
@@ -203,10 +177,15 @@ function startup(data, reason) {
 }
 
 function shutdown(data, reason) {
-  // When the application is shutting down we normally don't have to clean
-  // up any UI changes made
-  if (reason == APP_SHUTDOWN)
+  // When the application is shutting down we don't have to clean anything up.
+  // (Note that there's no actual guarantee isAppShuttingDown will be set
+  // by the time we are called here, but it usually is, and this is just an
+  // optimization, so it doesn't really matter if it isn't)
+  if (isAppShuttingDown) {
     return;
+  }
+
+  log("extension is shutting down");
 
   // Stop registering about:sync in new processes.
   Services.ppmm.removeDelayedProcessScript(DATA_URI_REGISTER_ABOUT);
@@ -215,20 +194,9 @@ function shutdown(data, reason) {
 
   let wm = Cc["@mozilla.org/appshell/window-mediator;1"].getService(Ci.nsIWindowMediator);
 
-  // Stop listening for new windows
-  wm.removeListener(windowListener);
-
-  // Unload from any existing windows
-  let windows = wm.getEnumerator("navigator:browser");
-  while (windows.hasMoreElements()) {
-    let domWindow = windows.getNext().QueryInterface(Ci.nsIDOMWindow);
-    try {
-      unloadFromWindow(domWindow);
-    } catch (ex) {
-      log("Failed to reset window: " + ex + "\n" + ex.stack);
-    }
-  }
   Services.prefs.removeObserver(PREF_VERBOSE, prefObserver);
+
+  Services.obs.removeObserver(onQuitApplicationGranted, "quit-application-granted");
 
   for (let topic of SYNC_STATUS_TOPICS) {
     Services.obs.removeObserver(syncStatusObserver, topic);
@@ -242,3 +210,13 @@ function shutdown(data, reason) {
 
 function install(data, reason) {}
 function uninstall(data, reason) {}
+
+// shims for webextension hacks.
+var EXPORTED_SYMBOLS = ["AboutSyncBootstrap"];
+
+this.AboutSyncBootstrap = {
+  startup,
+  shutdown,
+  install,
+  uninstall,
+};
