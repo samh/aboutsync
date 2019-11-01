@@ -36,10 +36,11 @@ echo
 # activated a virtualenv for this to work.
 # XXX - need at least:
 # AWS_ACCESS_KEY_ID, AWS_DEFAULT_REGION, AWS_SECRET_ACCESS_KEY, MOZENV
-
-[ -e "aboutsync-signed.xpi" ] && rm aboutsync-signed.xpi
-echo
-echo Uploading XPI to sign...
-sign-xpi -t mozillaextension -e $MOZENV -s net-mozaws-$MOZENV-addons-signxpi-input aboutsync.xpi
-echo Downloading signed XPI...
-aws s3 cp s3://net-mozaws-$MOZENV-addons-signxpi-output/aboutsync.xpi ./aboutsync-signed.xpi
+#
+# NOTE: This process is no longer used - we submit it to AMO who then signs it.
+# [ -e "aboutsync-signed.xpi" ] && rm aboutsync-signed.xpi
+# echo
+# echo Uploading XPI to sign...
+# sign-xpi -t mozillaextension -e $MOZENV -s net-mozaws-$MOZENV-addons-signxpi-input aboutsync.xpi
+# echo Downloading signed XPI...
+# aws s3 cp s3://net-mozaws-$MOZENV-addons-signxpi-output/aboutsync.xpi ./aboutsync-signed.xpi
