@@ -32,3 +32,43 @@ Other notes:
 * To see verbose debug messages from bootstrap.js, set a boolean preference
   "extensions.aboutsync.verbose" to true - messages will be sent to the browser
   console. Note that console.log etc can be used in the "data" JS.
+
+# Release Process
+
+* Edit manifest.json and bump the version number.
+
+* Tag the release with the same name as the version number - eg, `0.0.51` is
+  the tag for the `0.0.51` release branch. Eg, execute:
+
+  ```shell
+    git tag 0.0.51
+  ```
+
+* From some suitable linux-like environment (mozilla-build on Windows works
+  fine, WSL probably does too), execute:
+
+  ```shell
+    ./build.sh
+  ```
+
+  Which will generate `aboutsync.xpi` - you should test this artifact from a
+  Nightly's about:debugging (it's not signed, so you can't do it on Release)
+
+* Test the release!
+
+* Push the repo *including tags*
+
+  ```shell
+    git push --tags
+  ```
+
+* In Firefox, visit https://send.firefox.com/ and upload the .xpi.
+
+* Send an email to [amo-admins@mozilla.com](mailto:amo-admins@mozilla.com) from
+  your mozilla.com email address, including:
+  * A link to the .xpi you put up on send.firefox.com
+  * A link to https://github.com/mhammond/aboutsync/archive/{your-release-number}.zip
+    as the source code for the release.
+  * A bit of a change log.
+
+* Wait for confirmation that everything is good!
