@@ -44,8 +44,8 @@ Other notes:
     git tag 0.0.51
   ```
 
-* From some suitable linux-like environment (mozilla-build on Windows works
-  fine, WSL probably does too), execute:
+* From some suitable linux-like environment with npm installed (WSL works fine
+  on Windows):
 
   ```shell
     ./build.sh
@@ -70,5 +70,26 @@ Other notes:
   * A link to https://github.com/mhammond/aboutsync/archive/{your-release-number}.zip
     as the source code for the release.
   * A bit of a change log.
+
+  Here's a bit of a template you might find helpful:
+
+  ```
+  Hi amo-admins,
+    There's a new version of the about:sync addon which the Sync team
+    would like to see signed and released at your earliest convenience.
+
+    In case you've forgotten about this addon, it embeds an
+    "experimental api", so we can't go  through the normal release
+    process.
+
+  * The new version is XXXX
+  * The unsigned XPI can be retrieved from XXX
+  * The sources can be downloaded from https://github.com/mhammond/aboutsync/archive/XXX.zip
+
+  A quick changelog for user-facing changes in
+  this version:
+
+  * <insert changes here>
+  ```
 
 * Wait for confirmation that everything is good!
