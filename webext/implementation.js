@@ -7,10 +7,20 @@ this.aboutsync = class extends ExtensionAPI {
   getAPI(context) {
     return {
       aboutsync: {
-        startup() {
+        async startup() {
           try {
             let bootstrap = context.extension.resourceURL + "ext_bootstrap.js";
-            let ns = Cu.import(bootstrap, {});
+            // We can't Cu.import() this because it's not resource:// or chrome://, but we can
+            // load and eval it.
+            let script = await ChromeUtils.compileScript(bootstrap);
+            // Probably not strictly necessary to use a custom sandbox here, but it can't hurt.
+            let ns = Cu.Sandbox(
+              Services.scriptSecurityManager.getSystemPrincipal(),
+              {
+                sandboxName: `sandbox for about:sync's implementation`,
+              }
+            );
+            script.executeInGlobal(ns);
             try {
               ns.startup({context}, null);
             } catch (ex) {
