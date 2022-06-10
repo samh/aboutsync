@@ -16,8 +16,8 @@ const weaveService = Cc["@mozilla.org/weave/service;1"]
                      .getService(Ci.nsISupports)
                      .wrappedJSObject;
 
-const { getFxAccountsSingleton } = importLocal("resource://gre/modules/FxAccounts.jsm");
-const fxAccounts = getFxAccountsSingleton();
+const { fxAccounts: legacyfxAccounts, getFxAccountsSingleton } = importLocal("resource://gre/modules/FxAccounts.jsm");
+const fxAccounts = legacyfxAccounts || getFxAccountsSingleton();
 
 // Returns a promise that resolves when Sync is ready and logged in.
 function whenSyncReady() {
