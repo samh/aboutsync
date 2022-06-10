@@ -44,14 +44,15 @@ The general process followed by the addons team is
 but at the current time, the maintainers of about-sync don't have the required
 permissions. Therefore, the process is:
 
-* Get everything ready for the new release. Note that the addon version inside
-  manifest.json is not used by this process, so it's not strictly necessary
-  to bump it.
+* Consider bumping the version in `package.json` - that's not strictly necessary
+  as the final version string will be something like `X.Y.Zbuildid20220601.073719`,
+  but it makes it easier to work out what's in a version.
 
-* Ensure this revision is tested using the [testing process described above](#testing-a-xpi)
+* Find the exact github revision revision you want as the new build; usually current `main`.
+  Ensure this revision is tested using the [testing process described above](#testing-a-xpi)
 
 * Join the #addons-pipeline slack channel, asking for a release to be built
-  specifying the git revision - this will typically be `main`.
+  specifying that exact revision.
 
 * You should be given the link to a "release signing" taskcluster job - in this
   job, look for the built, signed .xpi and download it locally.
