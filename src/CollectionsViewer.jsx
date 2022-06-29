@@ -11,6 +11,7 @@ const { AboutSyncRecordEditor } = require("./AboutSyncRecordEditor");
 const { EngineActions } = require("./EngineActions");
 const { ProviderState } = require("./provider");
 const { PlacesSqlView, promiseSql } = require("./PlacesSqlView");
+const { BookmarkValidator } = require("./bookmarkValidator");
 
 const validation = require("./validation");
 
@@ -18,7 +19,6 @@ const { Weave } = importLocal("resource://services-sync/main.js");
 const { AddonValidator } = importLocal("resource://services-sync/engines/addons.js");
 const { PasswordValidator } = importLocal("resource://services-sync/engines/passwords.js");
 const { FormValidator } = importLocal("resource://services-sync/engines/forms.js");
-const { BookmarkValidator } = importLocal("resource://services-sync/bookmark_validator.js");
 
 // takes an array of objects who have no real properties but have a bunch of
 // getters on their prototypes, and returns an array of new objects that contain
