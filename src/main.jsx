@@ -4,8 +4,7 @@ const Services =
   Cu.import("resource://gre/modules/Services.jsm").Services;
 
 const React = require("react");
-const ReactDOM = require("react-dom");
-
+import { createRoot } from "react-dom/client";
 import AccountInfo from "./AccountInfo";
 const { ConfigComponent } = require("./config");
 const { ProviderState, ProviderInfo } = require("./provider");
@@ -148,7 +147,9 @@ class AboutSyncComponent extends React.Component {
 }
 
 function render() {
-  ReactDOM.render(<AboutSyncComponent/>, document.getElementById("main"));
+  const container = document.getElementById("main");
+  const root = createRoot(container);
+  root.render(<AboutSyncComponent/>);
 }
 
 // An observer that supports weak-refs (but kept alive by the window)
