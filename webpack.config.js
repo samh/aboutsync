@@ -2,22 +2,31 @@ module.exports = {
   entry: "./src/main.jsx",
   output: {
     filename: "build.js",
-    path: `${__dirname}/data`
+    path: `${__dirname}/data`,
   },
   resolve: {
-    extensions: [".js", ".jsx"]
+    extensions: [".js", ".jsx"],
   },
   devtool: false,
   module: {
     rules: [
       {
-        test: /.jsx$/,
-        loader: "babel-loader",
+        test: /\.?jsx$/,
         exclude: /node_modules/,
-        options: {
-          presets: ["@babel/react"],
-        }
-      }
-    ]
-  }
+        use: {
+          loader: "babel-loader",
+          options: {
+            presets: ["@babel/preset-env", "@babel/preset-react"],
+          },
+        },
+      },
+      {
+        test: /\.css$/,
+        use: [
+          "style-loader",
+          "css-loader", // for styles
+        ],
+      },
+    ],
+  },
 };
