@@ -226,7 +226,7 @@ class LogFilesComponent extends React.Component {
 
     for (let entry of this.state.logFiles.entries) {
       let logfile = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-      logfile.initWithPath(entry);
+      logfile.initWithPath(entry.path);
       zipWriter.addEntryFile(logfile.leafName,
                              Ci.nsIZipWriter.COMPRESSION_DEFAULT,
                              logfile, false);
@@ -267,13 +267,13 @@ class LogFilesComponent extends React.Component {
       if (entry.isDir || entry.isSymLink) {
         return false;
       }
-      let m = entry.match(LOG_FILE_RE);
+      let m = entry.name.match(LOG_FILE_RE);
       if (!m) {
         return false;
       }
       return !isNaN(+m[1])
     }).sort((a, b) => {
-      return (+a.match(LOG_FILE_RE)[1]) - (+b.match(LOG_FILE_RE)[1])
+      return (+a.name.match(LOG_FILE_RE)[1]) - (+b.name.match(LOG_FILE_RE)[1])
     });
   }
 
@@ -286,22 +286,24 @@ class LogFilesComponent extends React.Component {
       }
     });
 
-    // IOUtils does not have a open or openUnique alternative, we'll have to rethink this
-    // https://github.com/mozilla/gecko-dev/blob/ae292ebba6074601b33fa983dd4e01ce6a1ec4ac/dom/docs/ioutils_migration.md#some-methods-are-not-implemented 
-    let tmpFileInfo = PathUtils.join(PathUtils.tempDir, "aboutsync-combined-log.txt");
+    let combinedFilePath = PathUtils.join(PathUtils.tempDir, "aboutsync-combined-log.txt");
+    // need to nuke an existing file first.
+    if ((await IOUtils.exists(combinedFilePath))) {
+      await IOUtils.remove(combinedFilePath);
+    }
 
     try {
       let textEncoder = new TextEncoder();
       // as in cstdio
       async function puts(string) {
-        return tmpFileInfo.file.write(textEncoder.encode(string + "\n"));
+        return await IOUtils.write(combinedFilePath, textEncoder.encode(string + "\n"), {mode: "appendOrCreate"});
       }
 
       await puts(`Processing ${files.length} files`);
       let idx = 0;
       for (let entry of files) {
-        let writeDate = entry.match(LOG_FILE_RE)[1];
-        await puts(`\nLog file: ${entry} (written on ${timestampToTimeString(writeDate)})`);
+        let writeDate = entry.name.match(LOG_FILE_RE)[1];
+        await puts(`\nLog file: ${entry.name} (written on ${timestampToTimeString(writeDate)})`);
         this.setState({
           downloadingCombined: {
             current: ++idx,
@@ -336,8 +338,8 @@ class LogFilesComponent extends React.Component {
         }
         await puts(outLines.join("\n"));
       }
-    } finally {
-      await tmpFileInfo.file.close();
+    } catch (err) {
+      console.error("Error combining logs: ", err);
     }
     this.setState({
       downloadingCombined: {
@@ -346,7 +348,7 @@ class LogFilesComponent extends React.Component {
       }
     });
 
-    await this.downloadFile(PathUtils.toFileURI(tmpFileInfo.path), "aboutsync-combined-log.txt");
+    await this.downloadFile(PathUtils.toFileURI(combinedFilePath), "aboutsync-combined-log.txt");
   }
 
   async downloadCombined(event) {
@@ -379,8 +381,11 @@ class LogFilesComponent extends React.Component {
     try {
       let iterator = await IOUtils.getChildren(logDir.path);
       iterator.forEach(entry => {
-        result.entries.push(entry);
-        result.numErrors += entry.includes("error-") ? 1 : 0;
+        // IOUtils gives us the absolute path, but LOG_FILE_RE
+        // and other operations operate on the filename
+        let fileName = /[^/]*$/.exec(entry)[0];
+        result.entries.push({name: fileName, path: entry});
+        result.numErrors += fileName.startsWith("error-") ? 1 : 0;
       });
     } catch(err) {
       console.error("Failed to fetch the logfiles", err);
