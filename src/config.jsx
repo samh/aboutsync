@@ -8,15 +8,14 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 const Services =
   globalThis.Services ||
-  Cu.import("resource://gre/modules/Services.jsm").Services;
-const { Log } = importLocal("resource://gre/modules/Log.jsm");
-const { Preferences } = importLocal("resource://gre/modules/Preferences.jsm");
-const { FileUtils } = importLocal("resource://gre/modules/FileUtils.jsm");
-const { OS } = importLocal("resource://gre/modules/osfile.jsm");
+  Cu.import("resource://gre/modules/Services.sys.mjs").Services;
+const { Log } = ChromeUtils.importESModule("resource://gre/modules/Log.sys.mjs");
+const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Preferences.sys.mjs");
+const { FileUtils } = ChromeUtils.importESModule("resource://gre/modules/FileUtils.sys.mjs");
 const { Downloads } = importLocal("resource://gre/modules/Downloads.jsm");
 const { Config } = importLocal("chrome://aboutsync/content/config.js");
 const { Panel, PanelGroup } = require("./panel");
-const { Weave } = importLocal("resource://services-sync/main.js");
+const { Weave } = ChromeUtils.importESModule("resource://services-sync/main.sys.mjs");
 
 // For our "Sync Preferences" support.
 // A "log level" <select> element.
@@ -227,7 +226,7 @@ class LogFilesComponent extends React.Component {
 
     for (let entry of this.state.logFiles.entries) {
       let logfile = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-      logfile.initWithPath(entry.path);
+      logfile.initWithPath(entry);
       zipWriter.addEntryFile(logfile.leafName,
                              Ci.nsIZipWriter.COMPRESSION_DEFAULT,
                              logfile, false);
@@ -244,10 +243,10 @@ class LogFilesComponent extends React.Component {
 
   async downloadFile(sourceFileURI, targetFilename) {
     let downloadsDir = await Downloads.getPreferredDownloadsDirectory();
-    let filename = await OS.Path.join(downloadsDir, targetFilename);
+    let filename = await PathUtils.join(downloadsDir, targetFilename);
     // need to nuke an existing file first.
-    if ((await OS.File.exists(filename))) {
-      await OS.File.remove(filename);
+    if ((await IOUtils.exists(filename))) {
+      await IOUtils.remove(filename);
     }
     let download = await Downloads.createDownload({
       source: sourceFileURI,
@@ -268,13 +267,13 @@ class LogFilesComponent extends React.Component {
       if (entry.isDir || entry.isSymLink) {
         return false;
       }
-      let m = entry.name.match(LOG_FILE_RE);
+      let m = entry.match(LOG_FILE_RE);
       if (!m) {
         return false;
       }
       return !isNaN(+m[1])
     }).sort((a, b) => {
-      return (+a.name.match(LOG_FILE_RE)[1]) - (+b.name.match(LOG_FILE_RE)[1])
+      return (+a.match(LOG_FILE_RE)[1]) - (+b.match(LOG_FILE_RE)[1])
     });
   }
 
@@ -287,8 +286,9 @@ class LogFilesComponent extends React.Component {
       }
     });
 
-    let tmpFileInfo = await OS.File.openUnique(
-      OS.Path.join(OS.Constants.Path.tmpDir, "aboutsync-combined-log.txt"))
+    // IOUtils does not have a open or openUnique alternative, we'll have to rethink this
+    // https://github.com/mozilla/gecko-dev/blob/ae292ebba6074601b33fa983dd4e01ce6a1ec4ac/dom/docs/ioutils_migration.md#some-methods-are-not-implemented 
+    let tmpFileInfo = PathUtils.join(PathUtils.tempDir, "aboutsync-combined-log.txt");
 
     try {
       let textEncoder = new TextEncoder();
@@ -300,15 +300,15 @@ class LogFilesComponent extends React.Component {
       await puts(`Processing ${files.length} files`);
       let idx = 0;
       for (let entry of files) {
-        let writeDate = entry.name.match(LOG_FILE_RE)[1];
-        await puts(`\nLog file: ${entry.name} (written on ${timestampToTimeString(writeDate)})`);
+        let writeDate = entry.match(LOG_FILE_RE)[1];
+        await puts(`\nLog file: ${entry} (written on ${timestampToTimeString(writeDate)})`);
         this.setState({
           downloadingCombined: {
             current: ++idx,
             total: files.length
           }
         });
-        let entireFile = await OS.File.read(entry.path, { encoding: "UTF-8" });
+        let entireFile = await IOUtils.readUTF8(entry.path);
         let entireFileLines = entireFile.split("\n");
 
         if (entireFileLines.length == 0) {
@@ -346,7 +346,7 @@ class LogFilesComponent extends React.Component {
       }
     });
 
-    await this.downloadFile(OS.Path.toFileURI(tmpFileInfo.path), "aboutsync-combined-log.txt");
+    await this.downloadFile(PathUtils.toFileURI(tmpFileInfo.path), "aboutsync-combined-log.txt");
   }
 
   async downloadCombined(event) {
@@ -369,23 +369,24 @@ class LogFilesComponent extends React.Component {
     });
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     // find all our log-files.
     let logDir = FileUtils.getDir("ProfD", ["weave", "logs"]);
-    let iterator = new OS.File.DirectoryIterator(logDir.path);
-
     let result = {
       entries: [],
       numErrors: 0,
     }
-    iterator.forEach(entry => {
-      result.entries.push(entry);
-      result.numErrors += entry.name.startsWith("error-") ? 1 : 0;
-    }).then(() => {
-      this.setState({ logFiles: result });
-    }).catch(err => {
+    try {
+      let iterator = await IOUtils.getChildren(logDir.path);
+      iterator.forEach(entry => {
+        result.entries.push(entry);
+        result.numErrors += entry.includes("error-") ? 1 : 0;
+      });
+    } catch(err) {
       console.error("Failed to fetch the logfiles", err);
-    });
+    }
+    // Update the state
+    this.setState({ logFiles: result });
   }
 
   _processing(kind, {current, total}) {

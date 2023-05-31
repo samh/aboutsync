@@ -13,7 +13,6 @@ const { PrefCheckbox } = require("./config");
 const { Weave } = importLocal("resource://services-sync/main.js");
 
 const { CryptoWrapper, Collection } = importLocal("resource://services-sync/record.js");
-const { OS } = importLocal("resource://gre/modules/osfile.jsm");
 const { PlacesUtils } = importLocal("resource://gre/modules/PlacesUtils.jsm");
 
 const React = require("react");
@@ -191,7 +190,7 @@ class LocalProvider extends Provider {
       this.anonymize(ob);
     }
     let json = JSON.stringify(ob, undefined, 2); // pretty!
-    return OS.File.writeAtomic(path, json, {encoding: "utf-8", tmpPath: path + ".tmp"});
+    return IOUtils.writeUTF8(path, json);
   }
 
   /* Perform a quick-and-nasty anonymization of the data. Replaces many
