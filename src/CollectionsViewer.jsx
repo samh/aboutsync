@@ -1,11 +1,9 @@
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 const React = require("react");
-const ReactDOM = require("react-dom");
-const DOM = require("react-dom-factories");
 const { TabView, TabPanel } = require("./TabView");
 
-const { Fetching, ObjectInspector, ErrorDisplay, arrayCloneWithoutJank, importLocal } = require("./common");
+const { Fetching, ObjectInspector, ErrorDisplay, arrayCloneWithoutJank } = require("./common");
 const { TableInspector } = require("./AboutSyncTableInspector");
 const { AboutSyncRecordEditor } = require("./AboutSyncRecordEditor");
 const { EngineActions } = require("./EngineActions");
@@ -15,10 +13,10 @@ const { BookmarkValidator } = require("./bookmarkValidator");
 
 const validation = require("./validation");
 
-const { Weave } = importLocal("resource://services-sync/main.js");
-const { AddonValidator } = importLocal("resource://services-sync/engines/addons.js");
-const { PasswordValidator } = importLocal("resource://services-sync/engines/passwords.js");
-const { FormValidator } = importLocal("resource://services-sync/engines/forms.js");
+const { Weave } = ChromeUtils.importESModule("resource://services-sync/main.sys.mjs");
+const { AddonValidator } = ChromeUtils.importESModule("resource://services-sync/engines/addons.sys.mjs");
+const { PasswordValidator } = ChromeUtils.importESModule("resource://services-sync/engines/passwords.sys.mjs");
+const { FormValidator } = ChromeUtils.importESModule("resource://services-sync/engines/forms.sys.mjs");
 
 // takes an array of objects who have no real properties but have a bunch of
 // getters on their prototypes, and returns an array of new objects that contain
@@ -93,7 +91,7 @@ const collectionComponentBuilders = {
   },
 
   async clients(provider, serverRecords) {
-    const { fxAccounts: legacyfxAccounts, getFxAccountsSingleton } = importLocal("resource://gre/modules/FxAccounts.jsm");
+    const { fxAccounts: legacyfxAccounts, getFxAccountsSingleton } = ChromeUtils.importESModule("resource://gre/modules/FxAccounts.sys.mjs");
     const fxAccounts = legacyfxAccounts || getFxAccountsSingleton();
     let fxaDevices = [];
     if (typeof fxAccounts.device == "object" && "recentDeviceList" in fxAccounts.device) {

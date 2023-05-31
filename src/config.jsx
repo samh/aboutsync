@@ -8,15 +8,14 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 
 const Services =
   globalThis.Services ||
-  Cu.import("resource://gre/modules/Services.jsm").Services;
-const { Log } = importLocal("resource://gre/modules/Log.jsm");
-const { Preferences } = importLocal("resource://gre/modules/Preferences.jsm");
-const { FileUtils } = importLocal("resource://gre/modules/FileUtils.jsm");
-const { OS } = importLocal("resource://gre/modules/osfile.jsm");
+  Cu.import("resource://gre/modules/Services.sys.mjs").Services;
+const { Log } = ChromeUtils.importESModule("resource://gre/modules/Log.sys.mjs");
+const { Preferences } = ChromeUtils.importESModule("resource://gre/modules/Preferences.sys.mjs");
+const { FileUtils } = ChromeUtils.importESModule("resource://gre/modules/FileUtils.sys.mjs");
 const { Downloads } = importLocal("resource://gre/modules/Downloads.jsm");
 const { Config } = importLocal("chrome://aboutsync/content/config.js");
 const { Panel, PanelGroup } = require("./panel");
-const { Weave } = importLocal("resource://services-sync/main.js");
+const { Weave } = ChromeUtils.importESModule("resource://services-sync/main.sys.mjs");
 
 // For our "Sync Preferences" support.
 // A "log level" <select> element.
@@ -244,10 +243,10 @@ class LogFilesComponent extends React.Component {
 
   async downloadFile(sourceFileURI, targetFilename) {
     let downloadsDir = await Downloads.getPreferredDownloadsDirectory();
-    let filename = await OS.Path.join(downloadsDir, targetFilename);
+    let filename = await PathUtils.join(downloadsDir, targetFilename);
     // need to nuke an existing file first.
-    if ((await OS.File.exists(filename))) {
-      await OS.File.remove(filename);
+    if ((await IOUtils.exists(filename))) {
+      await IOUtils.remove(filename);
     }
     let download = await Downloads.createDownload({
       source: sourceFileURI,
@@ -287,14 +286,17 @@ class LogFilesComponent extends React.Component {
       }
     });
 
-    let tmpFileInfo = await OS.File.openUnique(
-      OS.Path.join(OS.Constants.Path.tmpDir, "aboutsync-combined-log.txt"))
+    let combinedFilePath = PathUtils.join(PathUtils.tempDir, "aboutsync-combined-log.txt");
+    // need to nuke an existing file first.
+    if ((await IOUtils.exists(combinedFilePath))) {
+      await IOUtils.remove(combinedFilePath);
+    }
 
     try {
       let textEncoder = new TextEncoder();
       // as in cstdio
       async function puts(string) {
-        return tmpFileInfo.file.write(textEncoder.encode(string + "\n"));
+        return await IOUtils.write(combinedFilePath, textEncoder.encode(string + "\n"), {mode: "appendOrCreate"});
       }
 
       await puts(`Processing ${files.length} files`);
@@ -308,7 +310,7 @@ class LogFilesComponent extends React.Component {
             total: files.length
           }
         });
-        let entireFile = await OS.File.read(entry.path, { encoding: "UTF-8" });
+        let entireFile = await IOUtils.readUTF8(entry.path);
         let entireFileLines = entireFile.split("\n");
 
         if (entireFileLines.length == 0) {
@@ -336,8 +338,8 @@ class LogFilesComponent extends React.Component {
         }
         await puts(outLines.join("\n"));
       }
-    } finally {
-      await tmpFileInfo.file.close();
+    } catch (err) {
+      console.error("Error combining logs: ", err);
     }
     this.setState({
       downloadingCombined: {
@@ -346,7 +348,7 @@ class LogFilesComponent extends React.Component {
       }
     });
 
-    await this.downloadFile(OS.Path.toFileURI(tmpFileInfo.path), "aboutsync-combined-log.txt");
+    await this.downloadFile(PathUtils.toFileURI(combinedFilePath), "aboutsync-combined-log.txt");
   }
 
   async downloadCombined(event) {
@@ -369,23 +371,27 @@ class LogFilesComponent extends React.Component {
     });
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     // find all our log-files.
     let logDir = FileUtils.getDir("ProfD", ["weave", "logs"]);
-    let iterator = new OS.File.DirectoryIterator(logDir.path);
-
     let result = {
       entries: [],
       numErrors: 0,
     }
-    iterator.forEach(entry => {
-      result.entries.push(entry);
-      result.numErrors += entry.name.startsWith("error-") ? 1 : 0;
-    }).then(() => {
-      this.setState({ logFiles: result });
-    }).catch(err => {
+    try {
+      let iterator = await IOUtils.getChildren(logDir.path);
+      iterator.forEach(entry => {
+        // IOUtils gives us the absolute path, but LOG_FILE_RE
+        // and other operations operate on the filename
+        let fileName = /[^/]*$/.exec(entry)[0];
+        result.entries.push({name: fileName, path: entry});
+        result.numErrors += fileName.startsWith("error-") ? 1 : 0;
+      });
+    } catch(err) {
       console.error("Failed to fetch the logfiles", err);
-    });
+    }
+    // Update the state
+    this.setState({ logFiles: result });
   }
 
   _processing(kind, {current, total}) {
