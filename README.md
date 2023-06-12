@@ -44,15 +44,16 @@ The general process followed by the addons team is
 but at the current time, the maintainers of about-sync don't have the required
 permissions. Therefore, the process is:
 
-* Consider bumping the version in `package.json` - that's not strictly necessary
-  as the final version string will be something like `X.Y.Zbuildid20220601.073719`,
-  but it makes it easier to work out what's in a version.
+* Bump the version in `package.json`
+  > the final version string will be something like `X.Y.Zbuildid20220601.073719`
+
+* If needed, bump the `strict_min_version` in `manifest.json`. Ensure there is a matching version you're targeting in the [version list](https://addons.mozilla.org/api/v5/applications/firefox/)
+  > Must use an exact version, `{version_number}.*` are not allowed to be used
 
 * Find the exact github revision revision you want as the new build; usually current `main`.
   Ensure this revision is tested using the [testing process described above](#testing-a-xpi)
 
-* Join the #addons-pipeline slack channel, asking for a release to be built
-  specifying that exact revision.
+* Follow the [Mozilla Add-on Review Request Intake](https://mozilla-hub.atlassian.net/wiki/spaces/FDPDT/pages/10617933/Mozilla+Add-on+Review+Requests+Intake) instructions to create an issue that will kick off the process for an update.
 
 * You will be notified of an initial build, with will include a "dep-signing"
   task - however, this doesn't create the .xpi you can submit to AMO. Two
