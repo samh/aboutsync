@@ -41,6 +41,17 @@ function expandProtoGetters(arr, prioritizedKeys = []) {
   });
 }
 
+function safeStringify(obj) {
+  let cache = [];
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (cache.includes(value)) return;
+      cache.push(value);
+    }
+    return value;
+  }, 2);
+}
+
 async function basicBuilder(validator, serverRecords, expandData = false, prioritizedKeys = []) {
   let clientRecords = await validator.getClientItems();
   let validationResults = await validator.compareClientWithServer(clientRecords, serverRecords);
@@ -261,7 +272,9 @@ class CollectionViewer extends React.Component {
         </TabPanel>
 
         <TabPanel name="Records (object)" key="records-object">
-          <ObjectInspector name="Records" data={this.state.records} expandLevel={recordsExpandLevel}/>
+          <pre>
+            {safeStringify(this.state.records)}
+          </pre>
         </TabPanel>
 
         {this.props.provider.isLocal && engine && (
